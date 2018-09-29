@@ -7,7 +7,7 @@
 #include "test_main.hpp"
 #include "combi_test.hpp"
 
-BOOST_AUTO_TEST_SUITE(test_resend_serialize)
+BOOST_AUTO_TEST_SUITE(test_resend_serialize_ptr_size)
 
 BOOST_AUTO_TEST_CASE( publish_qos1 ) {
     boost::asio::io_service ios;
@@ -22,21 +22,15 @@ BOOST_AUTO_TEST_CASE( publish_qos1 ) {
     c2->set_client_id("cid1");
     c2->set_clean_session(false);
 
-    std::map<
-        std::uint16_t,
-        std::tuple<
-            bool,       // is publish
-            std::string // whole packet bytes
-        >
-    > serialized;
+    std::map<std::uint16_t, std::string> serialized;
 
     c1->set_serialize_handlers(
-        [&serialized](mqtt::publish_message msg) {
-            serialized.emplace(msg.packet_id(), std::make_tuple(true, msg.continuous_buffer()));
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            serialized.emplace(packet_id, std::string(data, size));
         },
-        [&serialized](mqtt::pubrel_message msg) {
-            BOOST_CHECK(serialized.find(msg.packet_id()) != serialized.end());
-            serialized[msg.packet_id()] = std::make_tuple(false, msg.continuous_buffer());
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            BOOST_CHECK(serialized.find(packet_id) != serialized.end());
+            serialized[packet_id] = std::string(data, size);
         },
         [&serialized](std::uint16_t packet_id) {
             BOOST_CHECK(serialized.find(packet_id) != serialized.end());
@@ -45,12 +39,12 @@ BOOST_AUTO_TEST_CASE( publish_qos1 ) {
     );
 
     c2->set_serialize_handlers(
-        [&serialized](mqtt::publish_message msg) {
-            serialized.emplace(msg.packet_id(), std::make_tuple(true, msg.continuous_buffer()));
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            serialized.emplace(packet_id, std::string(data, size));
         },
-        [&serialized](mqtt::pubrel_message msg) {
-            BOOST_CHECK(serialized.find(msg.packet_id()) != serialized.end());
-            serialized[msg.packet_id()] = std::make_tuple(false, msg.continuous_buffer());
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            BOOST_CHECK(serialized.find(packet_id) != serialized.end());
+            serialized[packet_id] = std::string(data, size);
         },
         [&serialized](std::uint16_t packet_id) {
             BOOST_CHECK(serialized.find(packet_id) != serialized.end());
@@ -135,20 +129,7 @@ BOOST_AUTO_TEST_CASE( publish_qos1 ) {
             BOOST_TEST(current() == "h_error");
             ++order;
             for (auto const& e : serialized) {
-                auto const& packet = std::get<1>(e.second);
-                if (std::get<0>(e.second)) {
-                    // is publish
-                    c2->restore_serialized_message(
-                        mqtt::publish_message(packet.begin(), packet.end()),
-                        []{}
-                    );
-                }
-                else {
-                    // pubrel
-                    c2->restore_serialized_message(
-                        mqtt::pubrel_message(packet.begin(), packet.end())
-                    );
-                }
+                c2->restore_serialized_message(e.first, e.second.begin(), e.second.end());
             }
             c2->connect();
         });
@@ -212,21 +193,15 @@ BOOST_AUTO_TEST_CASE( publish_qos2 ) {
     c2->set_client_id("cid1");
     c2->set_clean_session(false);
 
-    std::map<
-        std::uint16_t,
-        std::tuple<
-            bool,       // is publish
-            std::string // whole packet bytes
-        >
-    > serialized;
+    std::map<std::uint16_t, std::string> serialized;
 
     c1->set_serialize_handlers(
-        [&serialized](mqtt::publish_message msg) {
-            serialized.emplace(msg.packet_id(), std::make_tuple(true, msg.continuous_buffer()));
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            serialized.emplace(packet_id, std::string(data, size));
         },
-        [&serialized](mqtt::pubrel_message msg) {
-            BOOST_CHECK(serialized.find(msg.packet_id()) != serialized.end());
-            serialized[msg.packet_id()] = std::make_tuple(false, msg.continuous_buffer());
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            BOOST_CHECK(serialized.find(packet_id) != serialized.end());
+            serialized[packet_id] = std::string(data, size);
         },
         [&serialized](std::uint16_t packet_id) {
             BOOST_CHECK(serialized.find(packet_id) != serialized.end());
@@ -235,12 +210,12 @@ BOOST_AUTO_TEST_CASE( publish_qos2 ) {
     );
 
     c2->set_serialize_handlers(
-        [&serialized](mqtt::publish_message msg) {
-            serialized.emplace(msg.packet_id(), std::make_tuple(true, msg.continuous_buffer()));
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            serialized.emplace(packet_id, std::string(data, size));
         },
-        [&serialized](mqtt::pubrel_message msg) {
-            BOOST_CHECK(serialized.find(msg.packet_id()) != serialized.end());
-            serialized[msg.packet_id()] = std::make_tuple(false, msg.continuous_buffer());
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            BOOST_CHECK(serialized.find(packet_id) != serialized.end());
+            serialized[packet_id] = std::string(data, size);
         },
         [&serialized](std::uint16_t packet_id) {
             BOOST_CHECK(serialized.find(packet_id) != serialized.end());
@@ -326,20 +301,7 @@ BOOST_AUTO_TEST_CASE( publish_qos2 ) {
             BOOST_TEST(current() == "h_error");
             ++order;
             for (auto const& e : serialized) {
-                auto const& packet = std::get<1>(e.second);
-                if (std::get<0>(e.second)) {
-                    // is publish
-                    c2->restore_serialized_message(
-                        mqtt::publish_message(packet.begin(), packet.end()),
-                        []{}
-                    );
-                }
-                else {
-                    // pubrel
-                    c2->restore_serialized_message(
-                        mqtt::pubrel_message(packet.begin(), packet.end())
-                    );
-                }
+                c2->restore_serialized_message(e.first, e.second.begin(), e.second.end());
             }
             c2->connect();
         });
@@ -410,21 +372,15 @@ BOOST_AUTO_TEST_CASE( pubrel_qos2 ) {
     c2->set_client_id("cid1");
     c2->set_clean_session(false);
 
-    std::map<
-        std::uint16_t,
-        std::tuple<
-            bool,       // is publish
-            std::string // whole packet bytes
-        >
-    > serialized;
+    std::map<std::uint16_t, std::string> serialized;
 
     c1->set_serialize_handlers(
-        [&serialized](mqtt::publish_message msg) {
-            serialized.emplace(msg.packet_id(), std::make_tuple(true, msg.continuous_buffer()));
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            serialized.emplace(packet_id, std::string(data, size));
         },
-        [&serialized](mqtt::pubrel_message msg) {
-            BOOST_CHECK(serialized.find(msg.packet_id()) != serialized.end());
-            serialized[msg.packet_id()] = std::make_tuple(false, msg.continuous_buffer());
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            BOOST_CHECK(serialized.find(packet_id) != serialized.end());
+            serialized[packet_id] = std::string(data, size);
         },
         [&serialized](std::uint16_t packet_id) {
             BOOST_CHECK(serialized.find(packet_id) != serialized.end());
@@ -433,12 +389,12 @@ BOOST_AUTO_TEST_CASE( pubrel_qos2 ) {
     );
 
     c2->set_serialize_handlers(
-        [&serialized](mqtt::publish_message msg) {
-            serialized.emplace(msg.packet_id(), std::make_tuple(true, msg.continuous_buffer()));
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            serialized.emplace(packet_id, std::string(data, size));
         },
-        [&serialized](mqtt::pubrel_message msg) {
-            BOOST_CHECK(serialized.find(msg.packet_id()) != serialized.end());
-            serialized[msg.packet_id()] = std::make_tuple(false, msg.continuous_buffer());
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            BOOST_CHECK(serialized.find(packet_id) != serialized.end());
+            serialized[packet_id] = std::string(data, size);
         },
         [&serialized](std::uint16_t packet_id) {
             BOOST_CHECK(serialized.find(packet_id) != serialized.end());
@@ -523,20 +479,7 @@ BOOST_AUTO_TEST_CASE( pubrel_qos2 ) {
             BOOST_TEST(current() == "h_error");
             ++order;
             for (auto const& e : serialized) {
-                auto const& packet = std::get<1>(e.second);
-                if (std::get<0>(e.second)) {
-                    // is publish
-                    c2->restore_serialized_message(
-                        mqtt::publish_message(packet.begin(), packet.end()),
-                        []{}
-                    );
-                }
-                else {
-                    // pubrel
-                    c2->restore_serialized_message(
-                        mqtt::pubrel_message(packet.begin(), packet.end())
-                    );
-                }
+                c2->restore_serialized_message(e.first, e.second.begin(), e.second.end());
             }
             c2->connect();
         });
@@ -615,21 +558,15 @@ BOOST_AUTO_TEST_CASE( multi_publish_qos1 ) {
     c2->set_client_id("cid1");
     c2->set_clean_session(false);
 
-    std::map<
-        std::uint16_t,
-        std::tuple<
-            bool,       // is publish
-            std::string // whole packet bytes
-        >
-    > serialized;
+    std::map<std::uint16_t, std::string> serialized;
 
     c1->set_serialize_handlers(
-        [&serialized](mqtt::publish_message msg) {
-            serialized.emplace(msg.packet_id(), std::make_tuple(true, msg.continuous_buffer()));
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            serialized.emplace(packet_id, std::string(data, size));
         },
-        [&serialized](mqtt::pubrel_message msg) {
-            BOOST_CHECK(serialized.find(msg.packet_id()) != serialized.end());
-            serialized[msg.packet_id()] = std::make_tuple(false, msg.continuous_buffer());
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            BOOST_CHECK(serialized.find(packet_id) != serialized.end());
+            serialized[packet_id] = std::string(data, size);
         },
         [&serialized](std::uint16_t packet_id) {
             BOOST_CHECK(serialized.find(packet_id) != serialized.end());
@@ -638,19 +575,18 @@ BOOST_AUTO_TEST_CASE( multi_publish_qos1 ) {
     );
 
     c2->set_serialize_handlers(
-        [&serialized](mqtt::publish_message msg) {
-            serialized.emplace(msg.packet_id(), std::make_tuple(true, msg.continuous_buffer()));
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            serialized.emplace(packet_id, std::string(data, size));
         },
-        [&serialized](mqtt::pubrel_message msg) {
-            BOOST_CHECK(serialized.find(msg.packet_id()) != serialized.end());
-            serialized[msg.packet_id()] = std::make_tuple(false, msg.continuous_buffer());
+        [&serialized](std::uint16_t packet_id, char const* data, std::size_t size) {
+            BOOST_CHECK(serialized.find(packet_id) != serialized.end());
+            serialized[packet_id] = std::string(data, size);
         },
         [&serialized](std::uint16_t packet_id) {
             BOOST_CHECK(serialized.find(packet_id) != serialized.end());
             serialized.erase(packet_id);
         }
     );
-
 
     std::uint16_t pid_pub1;
     std::uint16_t pid_pub2;
@@ -735,20 +671,7 @@ BOOST_AUTO_TEST_CASE( multi_publish_qos1 ) {
                 BOOST_TEST(current() == "h_error1");
                 ++order;
                 for (auto const& e : serialized) {
-                    auto const& packet = std::get<1>(e.second);
-                    if (std::get<0>(e.second)) {
-                        // is publish
-                        c2->restore_serialized_message(
-                            mqtt::publish_message(packet.begin(), packet.end()),
-                            []{}
-                        );
-                    }
-                    else {
-                        // pubrel
-                        c2->restore_serialized_message(
-                            mqtt::pubrel_message(packet.begin(), packet.end())
-                        );
-                    }
+                    c2->restore_serialized_message(e.first, e.second.begin(), e.second.end());
                 }
                 c2->connect();
                 break;

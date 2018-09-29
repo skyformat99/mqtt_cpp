@@ -9,16 +9,25 @@ CMAKE_MINIMUM_REQUIRED (VERSION 2.8.6)
 LIST (APPEND check_PROGRAMS
      connect.cpp
      pubsub.cpp
-     async_pubsub.cpp
+     async_pubsub_1.cpp
+     async_pubsub_2.cpp
      pubsub_no_strand.cpp
      remaining_length.cpp
      multi_sub.cpp
      resend.cpp
      resend_serialize.cpp
+     resend_serialize_ptr_size.cpp
      offline.cpp
      manual_publish.cpp
      retain.cpp
      will.cpp
+     length_check.cpp
+     sub.cpp
+     as_buffer_sub.cpp
+     as_buffer_pubsub.cpp
+     as_buffer_async_pubsub_1.cpp
+     as_buffer_async_pubsub_2.cpp
+     utf8string_validate.cpp
 )
 
 LIST (APPEND MQTT_LINK_LIBRARIES
@@ -47,7 +56,7 @@ FOREACH (source_file ${check_PROGRAMS})
     )
     IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
         SET_PROPERTY (TARGET ${source_file_we}
-                      APPEND_STRING PROPERTY COMPILE_FLAGS "-std=c++14 -Wall -Wextra -pthread")
+                      APPEND_STRING PROPERTY COMPILE_FLAGS "-std=c++14 -pthread")
     ENDIF ()
     IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
         IF (CMAKE_CXX_FLAGS MATCHES "/W[0-4]")

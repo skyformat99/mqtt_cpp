@@ -44,6 +44,17 @@ using con_sp_t = boost::variant<
 
 class test_broker {
 public:
+    test_broker(as::io_service& ios)
+        :ios_(ios),
+         tim_disconnect_(ios_)
+    {}
+
+    // [begin] for test setting
+    void set_disconnect_delay(boost::posix_time::time_duration const& delay) {
+        delay_disconnect_ = delay;
+    }
+    // [end] for test setting
+
     template <typename Endpoint>
     void handle_accept(Endpoint& ep) {
         auto sp = ep.shared_from_this();
@@ -85,7 +96,22 @@ public:
         ep.set_disconnect_handler(
             [&]
             (){
-                close_proc(ep, false);
+                if (delay_disconnect_) {
+                    std::weak_ptr<Endpoint> wp(ep.shared_from_this());
+                    tim_disconnect_.expires_from_now(delay_disconnect_.get());
+                    tim_disconnect_.async_wait(
+                        [&, wp](boost::system::error_code const& ec) {
+                            if (auto sp = wp.lock()) {
+                                if (!ec) {
+                                    close_proc(*sp, false);
+                                }
+                            }
+                        }
+                    );
+                }
+                else {
+                    close_proc(ep, false);
+                }
             });
         ep.set_puback_handler(
             [&]
@@ -115,7 +141,11 @@ public:
              std::string contents){
                 std::uint8_t qos = mqtt::publish::get_qos(header);
                 bool is_retain = mqtt::publish::is_retain(header);
-                do_publish(topic_name, contents, qos, is_retain);
+                do_publish(
+                    std::make_shared<std::string>(std::move(topic_name)),
+                    std::make_shared<std::string>(std::move(contents)),
+                    qos,
+                    is_retain);
                 return true;
             });
         ep.set_subscribe_handler(
@@ -128,7 +158,7 @@ public:
                     std::string const& topic = std::get<0>(e);
                     std::uint8_t qos = std::get<1>(e);
                     res.emplace_back(qos);
-                    subs_.emplace(topic, ep.shared_from_this(), qos);
+                    subs_.emplace(std::make_shared<std::string>(topic), ep.shared_from_this(), qos);
                 }
                 ep.suback(packet_id, res);
                 for (auto const& e : entries) {
@@ -136,7 +166,12 @@ public:
                     std::uint8_t qos = std::get<1>(e);
                     auto it = retains_.find(topic);
                     if (it != retains_.end()) {
-                        ep.publish(topic, it->contents, std::min(it->qos, qos), true);
+                        ep.publish(
+                            as::buffer(*it->topic),
+                            as::buffer(*it->contents),
+                            [t = it->topic, c = it->contents] {},
+                            std::min(it->qos, qos),
+                            true);
                     }
                 }
                 return true;
@@ -240,8 +275,9 @@ private:
                     make_lambda_visitor<void>(
                         [&](auto& con) {
                             con->publish(
-                                d.topic,
-                                d.contents,
+                                as::buffer(*d.topic),
+                                as::buffer(*d.contents),
+                                [t = d.topic, c = d.contents] {},
                                 d.qos,
                                 true
                             );
@@ -256,17 +292,22 @@ private:
         }
     }
 
-    void do_publish(std::string const& topic, std::string const& contents, std::uint8_t qos, bool is_retain) {
+    void do_publish(
+        std::shared_ptr<std::string> const& topic,
+        std::shared_ptr<std::string> const& contents,
+        std::uint8_t qos,
+        bool is_retain) {
         {
             auto const& idx = subs_.get<tag_topic>();
-            auto r = idx.equal_range(topic);
+            auto r = idx.equal_range(*topic);
             for (; r.first != r.second; ++r.first) {
                 boost::apply_visitor(
                     make_lambda_visitor<void>(
                         [&](auto& con) {
                             con->publish(
-                                topic,
-                                contents,
+                                as::buffer(*topic),
+                                as::buffer(*contents),
+                                [topic, contents] {},
                                 std::min(r.first->qos, qos),
                                 false
                             );
@@ -278,7 +319,7 @@ private:
         }
         {
             auto const& idx = subsessions_.get<tag_topic>();
-            auto r = idx.equal_range(topic);
+            auto r = idx.equal_range(*topic);
             for (; r.first != r.second; ++r.first) {
                 r.first->s->data.emplace_back(
                     topic,
@@ -288,11 +329,11 @@ private:
             }
         }
         if (is_retain) {
-            if (contents.empty()) {
-                retains_.erase(topic);
+            if (contents->empty()) {
+                retains_.erase(*topic);
             }
             else {
-                retains_.erase(topic);
+                retains_.erase(*topic);
                 retains_.emplace(topic, qos, contents);
             }
         }
@@ -307,7 +348,11 @@ private:
             auto it = will_.find(con.shared_from_this());
             if (it != will_.end()) {
                 if (send_will) {
-                    do_publish(it->will.topic(), it->will.message(), it->will.qos(), it->will.retain());
+                    do_publish(
+                        std::make_shared<std::string>(std::move(it->will.topic())),
+                        std::make_shared<std::string>(std::move(it->will.message())),
+                        it->will.qos(),
+                        it->will.retain());
                 }
                 will_.erase(it);
             }
@@ -370,9 +415,15 @@ private:
     >;
 
     struct sub_con {
-        sub_con(std::string const& topic, con_sp_t const& con, std::uint8_t qos)
+        sub_con(
+            std::shared_ptr<std::string> const& topic,
+            con_sp_t const& con,
+            std::uint8_t qos)
             :topic(topic), con(con), qos(qos) {}
-        std::string topic;
+        std::string const& get_topic() const {
+            return *topic;
+        }
+        std::shared_ptr<std::string> topic;
         con_sp_t con;
         std::uint8_t qos;
     };
@@ -381,7 +432,7 @@ private:
         mi::indexed_by<
             mi::ordered_non_unique<
                 mi::tag<tag_topic>,
-                BOOST_MULTI_INDEX_MEMBER(sub_con, std::string, topic)
+                BOOST_MULTI_INDEX_CONST_MEM_FUN(sub_con, std::string const&, sub_con::get_topic)
             >,
             mi::ordered_non_unique<
                 mi::tag<tag_con>,
@@ -391,27 +442,36 @@ private:
     >;
 
     struct retain {
-        retain(std::string const& topic, std::uint8_t qos, std::string const& contents)
+        retain(
+            std::shared_ptr<std::string> const& topic,
+            std::uint8_t qos,
+            std::shared_ptr<std::string> const& contents)
             :topic(topic), qos(qos), contents(contents) {}
-        std::string topic;
+        std::string const& get_topic() const {
+            return *topic;
+        }
+        std::shared_ptr<std::string> topic;
         std::uint8_t qos;
-        std::string contents;
+        std::shared_ptr<std::string> contents;
     };
     using mi_retain = mi::multi_index_container<
         retain,
         mi::indexed_by<
             mi::ordered_unique<
                 mi::tag<tag_topic>,
-                BOOST_MULTI_INDEX_MEMBER(retain, std::string, topic)
+                BOOST_MULTI_INDEX_CONST_MEM_FUN(retain, std::string const&, retain::get_topic)
             >
         >
     >;
 
     struct session_data {
-        session_data(std::string const& topic, std::string const& contents, std::uint8_t qos)
-            : topic(topic), contents(contents), qos(qos) {}
-        std::string topic;
-        std::string contents;
+        session_data(
+            std::shared_ptr<std::string> const& topic,
+            std::shared_ptr<std::string> const& contents,
+            std::uint8_t qos)
+            : topic(std::move(topic)), contents(contents), qos(qos) {}
+        std::shared_ptr<std::string> topic;
+        std::shared_ptr<std::string> contents;
         std::uint8_t qos;
     };
     struct session {
@@ -421,12 +481,18 @@ private:
         std::vector<session_data> data;
     };
     struct sub_session {
-        sub_session(std::string const& topic, std::shared_ptr<session> const& s, std::uint8_t qos)
+        sub_session(
+            std::shared_ptr<std::string> const& topic,
+            std::shared_ptr<session> const& s,
+            std::uint8_t qos)
             :topic(topic), s(s), qos(qos) {}
         std::string const& get_client_id() const {
             return s->client_id;
         }
-        std::string topic;
+        std::string const& get_topic() const {
+            return *topic;
+        }
+        std::shared_ptr<std::string> topic;
         std::shared_ptr<session> s;
         std::uint8_t qos;
     };
@@ -439,7 +505,7 @@ private:
             >,
             mi::ordered_non_unique<
                 mi::tag<tag_topic>,
-                BOOST_MULTI_INDEX_MEMBER(sub_session, std::string, topic)
+                BOOST_MULTI_INDEX_CONST_MEM_FUN(sub_session, std::string const&, sub_session::get_topic)
             >
         >
     >;
@@ -478,6 +544,9 @@ private:
         >
     >;
 
+    as::io_service& ios_;
+    as::deadline_timer tim_disconnect_;
+    boost::optional<boost::posix_time::time_duration> delay_disconnect_;
     mi_cid_con cons_;
     mi_sub_con subs_;
     std::set<std::string> sessions_;

@@ -21,6 +21,13 @@ ELSE ()
     MESSAGE (STATUS "WebSocket disabled")
 ENDIF ()
 
+IF (MQTT_USE_STR_CHECK)
+    MESSAGE (STATUS "UTF8String check enabled")
+    SET (CMAKE_CXX_FLAGS "-DMQTT_USE_STR_CHECK ${CMAKE_CXX_FLAGS}")
+ELSE ()
+    MESSAGE (STATUS "UTF8String check disabled")
+ENDIF ()
+
 IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     SET (CMAKE_CXX_FLAGS "/bigobj ${CMAKE_CXX_FLAGS}")
 ENDIF ()
@@ -28,7 +35,7 @@ ENDIF ()
 SET (Boost_USE_STATIC_LIBS        ON) # only find static libs
 SET (Boost_USE_MULTITHREADED      ON)
 # SET (Boost_USE_STATIC_RUNTIME    OFF)
-FIND_PACKAGE (Boost 1.59.0 COMPONENTS chrono timer test_exec_monitor system)
+FIND_PACKAGE (Boost 1.59.0 REQUIRED COMPONENTS chrono timer test_exec_monitor system)
 FIND_PACKAGE (Threads)
 
 IF (NOT MQTT_BEAST_INCLUDE_DIR)

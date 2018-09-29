@@ -35,7 +35,7 @@ public:
     using accept_handler = std::function<void(endpoint_t& ep)>;
 
     /**
-     * @breif Error handler
+     * @brief Error handler
      * @param ec error code
      */
     using error_handler = std::function<void(boost::system::error_code const& ec)>;
@@ -77,6 +77,8 @@ public:
         renew_socket();
         do_accept();
     }
+
+    unsigned short port() const { return acceptor_.local_endpoint().port(); }
 
     void close() {
         close_request_ = true;
@@ -138,7 +140,7 @@ public:
     using accept_handler = std::function<void(endpoint_t& ep)>;
 
     /**
-     * @breif Error handler
+     * @brief Error handler
      * @param ec error code
      */
     using error_handler = std::function<void(boost::system::error_code const& ec)>;
@@ -185,6 +187,8 @@ public:
         renew_socket();
         do_accept();
     }
+
+    unsigned short port() const { return acceptor_.local_endpoint().port(); }
 
     void close() {
         close_request_ = true;
@@ -274,7 +278,7 @@ public:
     using accept_handler = std::function<void(endpoint_t& ep)>;
 
     /**
-     * @breif Error handler
+     * @brief Error handler
      * @param ec error code
      */
     using error_handler = std::function<void(boost::system::error_code const& ec)>;
@@ -316,6 +320,8 @@ public:
         renew_socket();
         do_accept();
     }
+
+    unsigned short port() const { return acceptor_.local_endpoint().port(); }
 
     void close() {
         close_request_ = true;
@@ -414,7 +420,7 @@ public:
     using accept_handler = std::function<void(endpoint_t& ep)>;
 
     /**
-     * @breif Error handler
+     * @brief Error handler
      * @param ec error code
      */
     using error_handler = std::function<void(boost::system::error_code const& ec)>;
@@ -461,6 +467,8 @@ public:
         renew_socket();
         do_accept();
     }
+
+    unsigned short port() const { return acceptor_.local_endpoint().port(); }
 
     void close() {
         close_request_ = true;
