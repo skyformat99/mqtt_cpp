@@ -1,3 +1,41 @@
+## 4.0.0
+* Added getting ssl keylog callback for debugging. (#256)
+* Fixed re-listen logic for servers. Now we can re-listen after accept is failed. (#252, #254)
+* Fixed restore lifetime management to avoid accessing memory after destroyed (#251)
+* Removed BOOST_ASSERT checking in the case that actually happens if invalid message is received (#249, #250)
+* Added MQTT v5 support (#226, #245, #257, #258, #259)
+* Added connection overwrite behavior on `test_broker` (#210)
+* Added `async_client` and `sync_client` to avoid misusing async and sync APIs. `client` is still remained that can use both sync and async APIs. (#208)
+* Added concatenating `const_buffer` functionality on asynchronous packet sending (#207)
+* Improved documents (#198, #214, #219, #229, #235)
+* Added switching option between `std` and `boost` (#188, #209)
+* Improved build mechanisim (#184, #201, #253)
+* Code refactoring (#183, #189, #190, #193, #195, #197, #199, #202, #203, #211, #215, #216, #220, #227, #234, #236, #238, #239, #240, #242)
+* Support configure time switches for using std::varient or std::optional instead of the boost versions (#182)
+* Allow inheriting classes to construct mqtt::client (#181)
+* <<<< Breaking change >> Replaced fixed_header type from `char` to `std::uint8_t`. Fixed `-Wconversion` warnings. See https://github.com/redboltz/mqtt_cpp/pull/180/files (#180)
+
+## 3.1.0
+* Fixed inefficient passed by value. (#174)
+* Fixed unsugscribe message packet id position for continuours buffer. (#167)
+* Fixed subscribe message remaining length buffer size. (#165)
+* Added broker example. (#164)
+* Improved CI. (#161)
+* Added 32bit packet id support. It is out of MQTT spec. (#160, #163, #166, #168)
+* Added store assertion to detect internal logic error. (#157)
+* Fixed life keeper storing timing. (#156, #159)
+* Added getter for handlers. (#155)
+* Fixed async write callback. (#154)
+* Fixed ambiguous function call on C++17 visit call. (#153)
+* Improved packet id allocating algorithm. (#152, #162)
+* Removed throwing exception when error on close happens. (#151)
+* Added re-listen support after listining socket closed. (#150)
+* Fixed string_view definition (#146)
+* Added string (UTF-8) checking. It is disabled by default. Define MQTT_USE_STR_CHECK to enable it. (#142, #143)
+* Improved documents (#141, #131, #172, #173)
+* Improved build mechanisim (#140, #147, #148, #170)
+* Added custom next mqtt message read handler setting mechanism (#139)
+
 ## 3.0.0
 * << Breaking change >> mqtt_cpp requires full C++14 feature.
 * Added boost::asio::const_buffer interface. User can use it as topic name and contents(payload).

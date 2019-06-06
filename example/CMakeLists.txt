@@ -2,6 +2,11 @@ LIST (APPEND exec_PROGRAMS
     no_tls_client.cpp
     no_tls_server.cpp
     no_tls_both.cpp
+    v5_no_tls_client.cpp
+    v5_no_tls_server.cpp
+    v5_no_tls_both.cpp
+    v5_no_tls_prop.cpp
+    broker.cpp
 )
 
 IF (NOT MQTT_NO_TLS)
@@ -50,7 +55,7 @@ FOREACH (source_file ${exec_PROGRAMS})
     )
     IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
         SET_PROPERTY (TARGET ${source_file_we}
-                      APPEND_STRING PROPERTY COMPILE_FLAGS "-std=c++14 -pthread")
+                      APPEND_STRING PROPERTY COMPILE_FLAGS "-pthread")
     ENDIF ()
 ENDFOREACH ()
 
